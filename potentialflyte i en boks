@@ -1,0 +1,180 @@
+import numpy as np
+import scipy.sparse as sp
+import scipy.sparse.linalg as lin
+import matplotlib.pyplot as plt
+
+# Lager x-koordinatene
+m = 20
+x = np.linspace(0, 1, m + 2)
+h = x[1] - x[0]
+
+# Samme ide som for Dirichlet, men nå med variabler tilsvarende randene
+L3 = (1 / h ** 2) * sp.diags([1, -2, 1], [-1, 0, 1], shape=(m + 2, m + 2))
+
+# Vi må imidlertidig sette den første og siste rad lik null
+# de vil bli erstattet av ligninger for den deriverte
+
+# L3 blir ikke lenger diagonal, så datatypen må endres
+L3 = sp.csr_matrix(L3)
+
+# Setter den første rad lik null
+L3[0, 0] = 0
+L3[0, 1] = 0
+# Setter den siste rad lik null
+L3[-1, -1] = 0
+L3[-1, -2] = 0
+
+# Identitetsmatrise, men også med første og siste rad satt lik null
+I3 = sp.eye(m + 2)
+I3s = sp.csr_matrix(I3)
+I3s[0, 0] = 0
+I3s[-1, -1] = 0
+
+# Lager y-koordinatene
+n = 20
+y = np.linspace(0, 1, n + 2)
+k = y[1] - y[0]
+
+# Gjør det samme for y-retningen
+L4 = (1 / k ** 2) * sp.diags([1, -2, 1], [-1, 0, 1], shape=(n + 2, n + 2))
+
+L4 = sp.csr_matrix(L4)
+L4[0, 0] = 0
+L4[0, 1] = 0
+L4[-1, -1] = 0
+L4[-1, -2] = 0
+
+I4 = sp.eye(n + 2)
+I4s = sp.csr_matrix(I4)
+I4s[0, 0] = 0
+I4s[-1, -1] = 0
+
+# Vi lager matrisen fra kroneckerproduktet
+B1 = sp.kron(L3, I4s)
+B2 = sp.kron(I3s, L4)
+
+# Legg til randbetingelser i matrisa
+# x-retning
+NB3 = np.zeros((m + 2, m + 2))
+# Den deriverte, første rad
+NB3[0, 0] = -1 / h
+NB3[0, 1] = 1 / h
+# Den deriverte, siste rad
+NB3[-1, -2] = -1 / h
+NB3[-1, -1] = 1 / h
+
+# y-retning
+NB4 = np.zeros((n + 2, n + 2))
+# Den deriverte, første rad
+NB4[0, 0] = -1 / k
+NB4[0, 1] = 1 / k
+# Den deriverte, andre rad
+NB4[-1, -2] = -1 / k
+NB4[-1, -1] = 1 / k
+
+# Lager matrisen fra kroneckerproduktet
+NB1 = sp.kron(NB3, I4)
+NB2 = sp.kron(I3, NB4)
+
+# Legger sammen ligningene fra interiøren og randbetingelsene
+B = B1 + B2 + NB1 + NB2
+
+# Randbetingelser i forcing
+
+# En vektor (1,0,0,0,0....)
+Nm_l = np.zeros(m + 2)
+Nm_l[0] = 1
+
+# En vektor (0,0,...,0,0,1)
+Nm_r = np.zeros(m + 2)
+Nm_r[-1] = 1
+
+# En vektor (1,0,0,0,0....)
+Nn_l = np.zeros(n + 2)
+Nn_l[0] = 1
+
+# En vektor (0,0,...,0,0,1)
+Nn_r = np.zeros(n + 2)
+Nn_r[-1] = 1
+
+# Randbetingelser for u'(x,0)
+def g1(x):
+    return np.cos(2 * np.pi * x)
+
+# Randbetingelser for u'(x,1)
+def g2(x):
+    return np.cos(2 * np.pi * x)
+
+# Randbetingelser for u'(0,y)
+def g3(y):
+    return 0 * y
+
+# Randbetingelser for u'(1,y)
+def g4(y):
+    return 0 * y
+
+# Bidrag fra u'(x,0) på vektoren G
+G1 = sp.kron(g1(x), Nn_l)
+# Bidrag fra u'(x,1) på vektoren G
+G2 = sp.kron(g2(x), Nn_r)
+# Bidrag fra u'(0,y) på vektoren G
+G3 = sp.kron(Nm_l, g3(y))
+# Bidrag fra u'(1,y) på vektoren G
+G4 = sp.kron(Nm_r, g4(y))
+
+# Vi bruker en minstkvadraters løser, siden systemet har sannsynligvis uendelig mange løsninger
+G = G1 + G2 + G3 + G4
+
+G = G.toarray()
+
+# Løs systemet
+G = np.reshape(G, (m + 2) * (n + 2))
+
+# Vi bruker en minstkvadraters løser, siden systemet har sannsynligvis uendelig mange løsninger
+v, istop, itn, r1norm = lin.lsqr(B, G)[:4]
+
+# V er løsningen
+# Istop og itn forteller om iterasjoner brukt i løsningen
+# R1norm er størrelse på feil - burde være nær 0 hvis systemet har løsninger
+V = np.reshape(v, (m + 2, n + 2))
+
+# Vi plotter den numeriske løsningen under
+# Lager rutenett for plotting
+X, Y = np.meshgrid(x, y)
+
+# Lager figuren
+# Plotter den numeriske løsningen
+fig = plt.figure(figsize=(10, 7))
+ax = fig.add_subplot(111, projection='3d')
+surf = ax.plot_surface(X, Y, V, cmap='viridis')
+ax.set_xlabel('X-aksen')
+ax.set_ylabel('Y-aksen')
+ax.set_zlabel('Potensial ($\phi$)')
+ax.set_title('Numerisk løsning for potensialet ($\phi$)')
+fig.colorbar(surf, shrink=0.5, aspect=5)
+plt.show()
+
+# Beregn phi_x og phi_y numerisk for å finne u⃗
+# Deriverte i x-retning
+phi_x = np.gradient(V, h, axis=1)
+# Deriverte i y-retning
+phi_y = np.gradient(V, k, axis=0)
+
+# Hastighetsfeltet u
+u = -phi_x, -phi_y
+
+# Plot hastighetsfeltet
+plt.figure(figsize=(10, 7))
+plt.quiver(X, Y, u[0], u[1])
+plt.title('Hastighetsfeltet ($\mathbf{u}$)')
+plt.xlabel('X-aksen')
+plt.ylabel('Y-aksen')
+plt.show()
+
+# Plot strømlinjer
+plt.figure(figsize=(10, 7))
+plt.streamplot(X, Y, u[0], u[1])
+plt.title('Strømlinjer')
+plt.xlabel('X-aksen')
+plt.ylabel('Y-aksen')
+plt.show()
