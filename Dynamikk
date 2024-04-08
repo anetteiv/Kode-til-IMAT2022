@@ -1,0 +1,19 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+def u(x, t, v):
+    return 2 / (1 + np.exp((x - t) / v))
+
+x = np.linspace(-10, 10, 1000)
+
+v_values = [3, 1, 0.1, 0.01, 0.0000001]
+
+for v in v_values:
+    plt.plot(x, u(x, 0, v), label=f'v={v}')
+
+plt.title('Løsningen u(x, t) i t=0 for ulike verdier av v')
+plt.xlabel('x')
+plt.ylabel('u(x, t)')
+plt.legend()
+plt.grid(True)
+plt.show()
