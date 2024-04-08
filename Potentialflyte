@@ -1,0 +1,24 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+def f(X, Y):
+    x, y = X, Y
+    # Her legger vi inn de partiellderiverte vi fant
+    U = (1 + 1 / (x**2 + y**2)) - (2 * x**2 / (x**2 + y**2)**2)
+    V = (-2 * x * y) / (x**2 + y**2)**2
+    return U, V
+
+x = np.linspace(-4, 4, 100)
+y = np.linspace(-4, 4, 100)
+X, Y = np.meshgrid(x, y)
+
+U, V = f(X, Y)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.streamplot(X, Y, U, V, density=[0.5, 1])
+
+plt.xlabel('x')
+plt.ylabel('y')
+plt.title('Strømlinjer')
+plt.grid()
+plt.show()
